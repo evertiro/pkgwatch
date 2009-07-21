@@ -1,2 +1,5 @@
+Version 0.2 (2009-07-21)
+	- Fixed issue with users with only one package
+
 Version 0.1 (2009-07-20)
 	- Initial release

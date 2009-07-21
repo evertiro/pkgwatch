@@ -89,8 +89,14 @@ get() {
 		SINGLE=`wget -q -O - "http://aur.archlinux.org/packages.php?O=0&K=$USER&do_Search=Go&detail=1&L=$REPO&C=0&SeB=m&SB=n&SO=a&PP=100&outdated=on" | grep "class='f2'" | awk -F">" '{ print $2 }' | awk '{ print $1 }'`
 
 		if [ -z $SINGLE ]; then
-			echo -e "$ERROR User '$USER' does not exist!$RESET"
-			exit 1
+			EXIST=`wget -q -O - "http://aur.archlinux.org/packages.php?O=0&K=$USER&do_Search=Go&detail=1&L=$REPO&C=0&SeB=m&SB=n&SO=a&PP=100" | grep "No packages" | awk '{ print $2 }' | awk -F">" '{ print $2 }'`
+			if [ -z $EXIST ]; then
+				echo -e "$SUCCESS No packages out of date!$RESET"
+				exit 0
+			else
+				echo -e "$ERROR User '$USER' does not exist!$RESET"
+				exit 1
+			fi
 		else
 			echo $SINGLE >> /tmp/pkgwatch
 		fi
