@@ -1,0 +1,146 @@
+#!/bin/bash
+#
+# pkgwatch v0.1 - Arch out of date package notifier.
+# Copyright (C) 2009 Daniel J Griffiths <ghost1227@archlinux.us>
+# Thanks to:
+#            Wonder & Louipc for the initial idea
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
+
+VER=0.1
+OPT="none"
+INFO="\e[1;33m==>\e[1;37m"
+ERROR="\e[1;31m==>\e[1;37m"
+SUCCESS="\e[1;32m==>\e[1;37m"
+RESET="\e[0m"
+
+if [ -f /tmp/pkgwatch ]; then
+	rm -f /tmp/pkgwatch
+fi
+
+if [ ! -f $HOME/.config/pkgwatch/config ]; then
+	if [ ! -d $HOME/.config/pkgwatch ]; then
+		mkdir $HOME/.config/pkgwatch
+	fi
+	echo -e "# Configuration for pkgwatch is simple. Set USER to your AUR username and REPO\n# to which repo you want to search (valid options are unsupported, community,\n# and all).\n\nUSER=\nREPO=" > $HOME/.config/pkgwatch/config
+	echo -e "$ERROR Please edit $HOME/.config/pkgwatch/config before continuing!$RESET"
+	exit 0
+fi
+
+
+##############################
+### VERSION FUNCTION       ###
+##############################
+version() {
+	echo "pkgwatch v$VER"
+}
+
+##############################
+### USAGE FUNCTION         ###
+##############################
+usage() {
+	version
+	echo
+	echo "pkgwatch [option]"
+	echo "	-h, --help	Display help and exit"
+	echo "	-v, --version	Display version and exit"
+	echo "	-n, --notify	Output to notification daemon"
+}
+
+##############################
+### GET FUNCTION           ###
+##############################
+get() {
+	source $HOME/.config/pkgwatch/config
+
+	if [ -z $USER ] || [ -z $REPO ]; then
+		echo -e "$ERROR Missing configuration information!"
+		echo -e "$ERROR Please edit $HOME/.config/pkgwatch/config$RESET"
+	fi
+
+	REPO=`echo $REPO | tr [:upper:] [:lower:]`
+	if [ $REPO = "all" ]; then
+		REPO="0"
+	elif [ $REPO = "community" ]; then
+		REPO="3"
+	elif [ $REPO = "unsupported" ]; then
+		REPO="2"
+	else
+		echo -e "$ERROR [$REPO] is not a valid repository!"
+		exit 1
+	fi
+
+	TOTAL=`wget -q -O - "http://aur.archlinux.org/packages.php?O=0&K=ghost1227&do_Search=Go&detail=1&L=0&C=0&SeB=m&SB=n&SO=a&PP=100&outdated=on" | grep "Showing results" | awk '{ print $7}'`
+
+	if [ -z $TOTAL ]; then
+		SINGLE=`wget -q -O - "http://aur.archlinux.org/packages.php?O=0&K=$USER&do_Search=Go&detail=1&L=$REPO&C=0&SeB=m&SB=n&SO=a&PP=100&outdated=on" | grep "class='f2'" | awk -F">" '{ print $2 }' | awk '{ print $1 }'`
+
+		if [ -z $SINGLE ]; then
+			echo -e "$ERROR User '$USER' does not exist!$RESET"
+			exit 1
+		else
+			echo $SINGLE >> /tmp/pkgwatch
+		fi
+	else
+		OFFSET=0
+		while [ $OFFSET -lt $TOTAL ]; do
+			wget -q -O - "http://aur.archlinux.org/packages.php?O=$OFFSET&K=$USER&do_Search=Go&detail=1&L=$REPO&C=0&SeB=m&SB=n&SO=a&PP=100&outdated=on" | grep "class='f4'" | awk -F">" '{ print $5 }' | awk '{ print $1 }' | sed -e '/^$/d' >> /tmp/pkgwatch
+			let OFFSET=OFFSET+100
+		done
+	fi
+
+	if [ $OPT = "n" ]; then
+		OOD=`cat /tmp/pkgwatch`
+		notify-send "Out of date packages:" "$OOD"
+	else
+		echo -e "$INFO The following packages are marked out of date:"
+		echo -e "`cat /tmp/pkgwatch`$RESET"
+	fi
+
+	exit 0
+}
+
+##############################
+### GET RUNTIME ARGS       ###
+##############################
+
+while [ "$#" -ne "0" ]; do
+	case $1 in
+		'-n'|'--notify')
+		OPT="n"
+		get
+		;;
+		'-h'|'--help')
+		usage
+		exit 0
+		;;
+		'-v'|'--version')
+		version
+		exit 0
+		;;
+		*)
+		get
+		exit 0
+		;;
+	esac
+	shift
+done
+
+get
+
+exit 0
+
+
