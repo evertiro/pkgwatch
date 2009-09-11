@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# pkgwatch v0.1 - Arch out of date package notifier.
+# pkgwatch v0.3 - Arch out of date package notifier.
 # Copyright (C) 2009 Daniel J Griffiths <ghost1227@archlinux.us>
 # Thanks to:
 #            Wonder & Louipc for the initial idea
@@ -35,7 +35,7 @@ if [ ! -f $HOME/.config/pkgwatch/config ]; then
 	if [ ! -d $HOME/.config/pkgwatch ]; then
 		mkdir $HOME/.config/pkgwatch
 	fi
-	echo -e "# Configuration for pkgwatch is simple. Set USER to your AUR username and REPO\n# to which repo you want to search (valid options are unsupported, community,\n# and all).\n\nUSER=\nREPO=" > $HOME/.config/pkgwatch/config
+	echo -e "# Configuration for pkgwatch is simple. Set USER to your AUR username.\n\nUSER=" > $HOME/.config/pkgwatch/config
 	echo -e "$ERROR Please edit $HOME/.config/pkgwatch/config before continuing!$RESET"
 	exit 0
 fi
@@ -66,30 +66,18 @@ usage() {
 get() {
 	source $HOME/.config/pkgwatch/config
 
-	if [ -z $USER ] || [ -z $REPO ]; then
+	if [ -z $USER ]; then
 		echo -e "$ERROR Missing configuration information!"
 		echo -e "$ERROR Please edit $HOME/.config/pkgwatch/config$RESET"
 	fi
 
-	REPO=`echo $REPO | tr [:upper:] [:lower:]`
-	if [ $REPO = "all" ]; then
-		REPO="0"
-	elif [ $REPO = "community" ]; then
-		REPO="3"
-	elif [ $REPO = "unsupported" ]; then
-		REPO="2"
-	else
-		echo -e "$ERROR [$REPO] is not a valid repository!"
-		exit 1
-	fi
-
-	TOTAL=`wget -q -O - "http://aur.archlinux.org/packages.php?O=0&K=ghost1227&do_Search=Go&detail=1&L=0&C=0&SeB=m&SB=n&SO=a&PP=100&outdated=on" | grep "Showing results" | awk '{ print $7}'`
+	TOTAL=`wget -q -O - "http://aur.archlinux.org/packages.php?O=0&K=$USER&do_Search=Go&detail=1&L=2&C=0&SeB=m&SB=n&SO=a&PP=100&outdated=on" | grep "Showing results" | awk '{ print $7}'`
 
 	if [ -z $TOTAL ]; then
-		SINGLE=`wget -q -O - "http://aur.archlinux.org/packages.php?O=0&K=$USER&do_Search=Go&detail=1&L=$REPO&C=0&SeB=m&SB=n&SO=a&PP=100&outdated=on" | grep "class='f2'" | awk -F">" '{ print $2 }' | awk '{ print $1 }'`
+		SINGLE=`wget -q -O - "http://aur.archlinux.org/packages.php?O=0&K=$USER&do_Search=Go&detail=1&L=2&C=0&SeB=m&SB=n&SO=a&PP=100&outdated=on" | grep "class='f2'" | awk -F">" '{ print $2 }' | awk '{ print $1 }'`
 
 		if [ -z $SINGLE ]; then
-			EXIST=`wget -q -O - "http://aur.archlinux.org/packages.php?O=0&K=$USER&do_Search=Go&detail=1&L=$REPO&C=0&SeB=m&SB=n&SO=a&PP=100" | grep "No packages" | awk '{ print $2 }' | awk -F">" '{ print $2 }'`
+			EXIST=`wget -q -O - "http://aur.archlinux.org/packages.php?O=0&K=$USER&do_Search=Go&detail=1&L=2&C=0&SeB=m&SB=n&SO=a&PP=100" | grep "No packages" | awk '{ print $2 }' | awk -F">" '{ print $2 }'`
 			if [ -z $EXIST ]; then
 				echo -e "$SUCCESS No packages out of date!$RESET"
 				exit 0
@@ -103,7 +91,7 @@ get() {
 	else
 		OFFSET=0
 		while [ $OFFSET -lt $TOTAL ]; do
-			wget -q -O - "http://aur.archlinux.org/packages.php?O=$OFFSET&K=$USER&do_Search=Go&detail=1&L=$REPO&C=0&SeB=m&SB=n&SO=a&PP=100&outdated=on" | grep "class='f4'" | awk -F">" '{ print $5 }' | awk '{ print $1 }' | sed -e '/^$/d' >> /tmp/pkgwatch
+			wget -q -O - "http://aur.archlinux.org/packages.php?O=$OFFSET&K=$USER&do_Search=Go&detail=1&L=2&C=0&SeB=m&SB=n&SO=a&PP=100&outdated=on" | grep "class='f4'" | awk -F">" '{ print $5 }' | awk '{ print $1 }' | sed -e '/^$/d' >> /tmp/pkgwatch
 			let OFFSET=OFFSET+100
 		done
 	fi

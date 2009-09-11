@@ -1,3 +1,6 @@
+Version 0.3 (2009-09-11)
+	- Removed broken [community] repo access
+
 Version 0.2 (2009-07-21)
 	- Fixed error if user only has one package
 
