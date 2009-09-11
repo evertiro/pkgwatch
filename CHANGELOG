@@ -1,3 +1,7 @@
+Version 0.4 (2009-09-11)
+	- Added the ability to pass username from commandline
+	- Added the ability to override username in config
+
 Version 0.3 (2009-09-11)
 	- Removed broken [community] repo access
 	- Removed reference to test username
