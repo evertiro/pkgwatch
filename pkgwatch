@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# pkgwatch v0.4 - Arch out of date package notifier.
+# pkgwatch v0.5 - Arch out of date package notifier.
 # Copyright (C) 2009 Daniel J Griffiths <ghost1227@archlinux.us>
 # Thanks to:
 #            Wonder & Louipc for the initial idea
@@ -22,13 +22,14 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-VER=0.4
+VER=0.5
 NOTIFY=0
 INFO="\e[1;33m==>\e[1;37m"
 ERROR="\e[1;31m==>\e[1;37m"
 SUCCESS="\e[1;32m==>\e[1;37m"
 RESET="\e[0m"
 
+BASE_URL="http://aur.archlinux.org/packages.php?O=0&do_Search=Go&detail=1&L=2&C=0&SeB=m&SB=n&SO=a&PP=100"
 unset USER
 
 if [ -f /tmp/pkgwatch ]; then
@@ -39,7 +40,7 @@ fi
 ### VERSION FUNCTION       ###
 ##############################
 version() {
-	echo "pkgwatch v$VER"
+	echo "pkgwatch v${VER}"
 }
 
 ##############################
@@ -58,49 +59,51 @@ usage() {
 ### GET FUNCTION           ###
 ##############################
 get() {
-	if [ -z $USER ]; then
-		if [ -f $HOME/.config/pkgwatch/config ]; then
-			source $HOME/.config/pkgwatch/config
+	if [ -z "${USER}" ]; then
+		if [ -f ${XDG_CONFIG_HOME}/pkgwatch/pkgwatchrc ]; then
+			source ${XDG_CONFIG_HOME}/pkgwatch/pkgwatchrc
+		elif [ -f ${HOME}/.pkgwatchrc ]; then
+			source ${HOME}/.pkgwatchrc
 		fi
 	fi
 
-	if [ -z $USER ]; then
-		echo -e "$ERROR Missing configuration information!"
-		echo -e "$ERROR Please pass a username or set \"USER=username\" in $HOME/.config/pkgwatch/config$RESET"
+	if [ -z "${USER}" ]; then
+		echo -e "${ERROR} Missing configuration information!"
+		echo -e "${ERROR} Please pass a username or set \"USER=username\" in your config.${RESET}"
 		exit 1
 	fi
 
-	TOTAL=`wget -q -O - "http://aur.archlinux.org/packages.php?O=0&K=$USER&do_Search=Go&detail=1&L=2&C=0&SeB=m&SB=n&SO=a&PP=100&outdated=on" | grep "Showing results" | awk '{ print $7}'`
+	TOTAL=$(wget -q -O - "${BASE_URL}&K=${USER}&outdated=on" | sed -r "s/.*Showing results.*of ([0-9]+).*/\1/;t;d")
 
-	if [ -z $TOTAL ]; then
-		SINGLE=`wget -q -O - "http://aur.archlinux.org/packages.php?O=0&K=$USER&do_Search=Go&detail=1&L=2&C=0&SeB=m&SB=n&SO=a&PP=100&outdated=on" | grep "class='f2'" | awk -F">" '{ print $2 }' | awk '{ print $1 }'`
+	if [ -z "${TOTAL}" ]; then
+		SINGLE=$(wget -q -O - "${BASE_URL}&K=${USER}&outdated=on" | sed -r "s/.*class='f2'>([^<]*).*/\1/;t;d")
 
-		if [ -z $SINGLE ]; then
-			EXIST=`wget -q -O - "http://aur.archlinux.org/packages.php?O=0&K=$USER&do_Search=Go&detail=1&L=2&C=0&SeB=m&SB=n&SO=a&PP=100" | grep "No packages" | awk '{ print $2 }' | awk -F">" '{ print $2 }'`
-			if [ -z $EXIST ]; then
-				echo -e "$SUCCESS No packages out of date!$RESET"
+		if [ -z "${SINGLE}" ]; then
+			EXIST=$(wget -q -O - "${BASE_URL}&K=${USER}" | grep "No packages")
+			if [ -z "${EXIST}" ]; then
+				echo -e "${SUCCESS} No packages out of date!${RESET}"
 				exit 0
 			else
-				echo -e "$ERROR User '$USER' does not exist!$RESET"
+				echo -e "${ERROR} User '${USER}' does not exist!${RESET}"
 				exit 1
 			fi
 		else
-			echo $SINGLE >> /tmp/pkgwatch
+			echo ${SINGLE} >> /tmp/pkgwatch
 		fi
 	else
 		OFFSET=0
-		while [ $OFFSET -lt $TOTAL ]; do
-			wget -q -O - "http://aur.archlinux.org/packages.php?O=$OFFSET&K=$USER&do_Search=Go&detail=1&L=2&C=0&SeB=m&SB=n&SO=a&PP=100&outdated=on" | grep "class='f4'" | awk -F">" '{ print $5 }' | awk '{ print $1 }' | sed -e '/^$/d' >> /tmp/pkgwatch
+		while [ ${OFFSET} -lt ${TOTAL} ]; do
+			wget -q -O - "${BASE_URL}0=${OFFSET}&K=${USER}&outdated=on" | sed -r "s/.*class='f4'>[^>]*>[^>]*>([^<]*).*/\1/;t;d" >> /tmp/pkgwatch
 			let OFFSET=OFFSET+100
 		done
 	fi
 
-	if [ $NOTIFY -eq 1 ]; then
+	if [ ${NOTIFY} -eq 1 ]; then
 		OOD=$(< /tmp/pkgwatch)
-		notify-send "Out of date packages:" "$OOD"
+		notify-send "Out of date packages:" "${OOD}"
 	else
-		echo -e "$INFO The following packages are marked out of date:"
-		echo -e "`cat /tmp/pkgwatch`$RESET"
+		echo -e "${INFO} The following packages are marked out of date:"
+		echo -e "`cat /tmp/pkgwatch`${RESET}"
 	fi
 
 	exit 0
@@ -111,7 +114,7 @@ get() {
 ##############################
 
 while [ "$#" -ne "0" ]; do
-	case $1 in
+	case ${1} in
 		'-n'|'--notify')
 		let NOTIFY=1
 		;;
@@ -124,7 +127,7 @@ while [ "$#" -ne "0" ]; do
 		exit 0
 		;;
 		*)
-		USER=$1
+		USER=${1}
 		;;
 	esac
 	shift
